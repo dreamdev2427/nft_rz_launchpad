@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { MouseEventHandler, useEffect, useMemo } from "react";
+import { MouseEventHandler, useEffect, useMemo, useState } from "react";
 import { ChainCard } from "../components";
 import { Address } from "./react/views";
 import {
@@ -8,8 +8,11 @@ import {
   ArrowDownTrayIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
-import { useChain } from "@cosmos-kit/react";
+import { useChain, useWalletClient } from "@cosmos-kit/react";
 import { WalletStatus } from "@cosmos-kit/core";
+import { SigningStargateClient } from "@cosmjs/stargate";
+import BigNumber from "bignumber.js";
+
 import { chainName } from "../config";
 
 const buttons = {
@@ -36,6 +39,13 @@ const buttons = {
 };
 
 export const WalletSection = () => {
+  const [cosmo_getAccount, setCosmo_getAccount] = useState<
+    string | undefined
+  >();
+  const [cosmos_signAmino, setCosmos_signAmino] = useState<
+    string | undefined
+  >();
+
   const {
     connect,
     openView,
@@ -44,9 +54,11 @@ export const WalletSection = () => {
     address,
     chain: chainInfo,
     logoUrl,
+    getSigningStargateClient,
+    getRpcEndpoint,
   } = useChain(chainName);
 
-  console.log("chainName", chainInfo);
+  console.log("chainName", chainName);
 
   const chain = {
     chainName,
@@ -54,6 +66,11 @@ export const WalletSection = () => {
     value: chainName,
     icon: logoUrl,
   };
+
+  const { client } = useWalletClient();
+
+  const [isFetchingBalance, setFetchingBalance] = useState(false);
+  const [resp, setResp] = useState("");
 
   // Events
   const onClickConnect: MouseEventHandler = async (e) => {

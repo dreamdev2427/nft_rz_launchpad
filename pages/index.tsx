@@ -15,6 +15,7 @@ import {
   MINTING_PRICE_LIST,
   PINATA_GATEWAY,
   PLATFORM_NETWORKS,
+  chainName,
   config,
 } from "../config";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
@@ -54,17 +55,31 @@ import {
   isSupportedEVMNetwork,
   payBulkMintingPriceWithNativeCurrency,
 } from "../utils/web3interact";
-import {
-  collectionConfig,
-  checkNativeCurrencyAndTokenBalances,
-  batchMint,
-} from "../utils/cosmwasm";
+import { collectionConfig, batchMint } from "../utils/cosmwasm";
 import { getFIleType } from "../components/RizeSwiper";
+import { useChain, useWalletClient } from "@cosmos-kit/react";
+import {
+  CosmWasmClient,
+  SigningCosmWasmClient,
+} from "@cosmjs/cosmwasm-stargate";
+import BigNumber from "bignumber.js";
+import { cosmos } from "juno-network";
+import { ExtendedHttpEndpoint } from "@cosmos-kit/core";
+import { Asset, AssetList } from "@chain-registry/types";
+import { assets } from "chain-registry";
 
 const socials = [
   { name: "Twitter", icon: <TbBrandTwitter color={"#33FF00"} />, href: "#" },
   { name: "Discord", icon: <RxDiscordLogo color={"#33FF00"} />, href: "#" },
 ];
+
+const chainassets: AssetList = assets.find(
+  (chain) => chain.chain_name === chainName
+) as AssetList;
+
+const coin: Asset = chainassets.assets.find(
+  (asset) => asset.base === "core"
+) as Asset;
 
 export default function Home() {
   const router = useRouter();
@@ -115,17 +130,43 @@ export default function Home() {
   const [showUploadingItemsModal, setShowUploadingItemsModal] = useState(false);
   const [detailedCollection, setDetailedCollection] = useState(null);
   const [web3Modal, setWeb3Modal] = useState(null);
+  const [cosmo_getAccount, setCosmo_getAccount] = useState<
+    string | undefined
+  >();
+  const [cosmos_signAmino, setCosmos_signAmino] = useState<
+    string | undefined
+  >();
+
+  const { getSigningCosmWasmClient, address, status, getRpcEndpoint } =
+    useChain(chainName);
+  const [balance, setBalance] = useState(new BigNumber(0));
+  const [isFetchingBalance, setFetchingBalance] = useState(false);
+  const [resp, setResp] = useState("");
+  const [client, setClient] = useState(null);
+  const [signingClient, setSigningClient] = useState(null);
+
+  const loadClient = async (rpc = "") => {
+    try {
+      const temp = await CosmWasmClient.connect(config.RPC_URL);
+      setClient(temp as any);
+    } catch (error) {
+      throw error;
+    }
+  };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && web3Modal === null) {
-      const web3modl = new Web3Modal({
-        network: "mainnet",
-        cacheProvider: false,
-        disableInjectedProvider: false,
-        providerOptions,
-      });
-      setWeb3Modal(web3modl as any);
-    }
+    try {
+      if (typeof window !== "undefined" && web3Modal === null) {
+        const web3modl = new Web3Modal({
+          network: "mainnet",
+          cacheProvider: false,
+          disableInjectedProvider: false,
+          providerOptions,
+        });
+        setWeb3Modal(web3modl as any);
+      }
+      loadClient();
+    } catch (error: any) {}
   }, []);
 
   useEffect(() => {
@@ -175,6 +216,24 @@ export default function Home() {
       address.slice(address.length - 4, address.length)
     );
   };
+
+  const getSignclient = async () => {
+    if (address && address != "") {
+      try {
+        let sicl = await getSigningCosmWasmClient();
+        if (!sicl || !address) {
+          console.error("stargateClient undefined or address undefined.");
+          return;
+        }
+        setSigningClient(sicl as any);
+        return sicl;
+      } catch (error) {}
+    }
+  };
+
+  useEffect(() => {
+    getSignclient();
+  }, [address]);
 
   useEffect(() => {
     if (!isEmpty(walletAddress)) {
@@ -646,6 +705,46 @@ export default function Home() {
     }
   };
 
+  const getBalance = async () => {
+    if (!address) {
+      setBalance(new BigNumber(0));
+      setFetchingBalance(false);
+      return;
+    }
+
+    let rpcEndpoint = await getRpcEndpoint();
+
+    if (!rpcEndpoint) {
+      console.info("no rpc endpoint — using a fallback");
+      rpcEndpoint = `https://rpc.cosmos.directory/${chainName}`;
+    }
+
+    // get RPC client
+    const client = await cosmos.ClientFactory.createRPCQueryClient({
+      rpcEndpoint:
+        typeof rpcEndpoint === "string"
+          ? rpcEndpoint
+          : (rpcEndpoint as ExtendedHttpEndpoint).url,
+    });
+
+    // fetch balance
+    const balance = await client.cosmos.bank.v1beta1.balance({
+      address,
+      denom: chainassets?.assets[0].base as string,
+    });
+
+    // Get the display exponent
+    // we can get the exponent from chain registry asset denom_units
+    const exp = coin.denom_units.find((unit) => unit.denom === coin.display)
+      ?.exponent as number;
+
+    // show balance in display values by exponentiating it
+    const a = new BigNumber(balance.balance?.amount || 0);
+    const amount = a.multipliedBy(10 ** -exp);
+    setBalance(amount);
+    setFetchingBalance(false);
+  };
+
   const saveMultipleItem = async (
     params: any,
     sel_JsonFiles: Array<any>,
@@ -693,22 +792,12 @@ export default function Home() {
             //do transaction
             try {
               let colllectionInfo = await collectionConfig(
+                client as any,
                 (selectedColl as any)?.address
               );
               let startId = (colllectionInfo as any).unused_token_id;
-              let balanceCheck = await checkNativeCurrencyAndTokenBalances(0);
-              if (balanceCheck === false) {
-                axios
-                  .post(`${config.API_URL}api/item/deleteManyByIds`, {
-                    idArray: IdArray,
-                    collId: (detailedCollection as any)?._id || "",
-                  })
-                  .then((response) => {})
-                  .catch((error) => {});
-                setWorking(false);
-                return;
-              }
               let txHash = await batchMint(
+                signingClient as any,
                 (currentUser as any).address,
                 selectedColl.address,
                 (params as any).metadataURIs,

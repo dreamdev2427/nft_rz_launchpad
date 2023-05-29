@@ -1,9 +1,3 @@
-import { assets, chains, ibc } from "chain-registry";
-
-const assetList = assets.find(({ chain_name }) => chain_name === "coreum");
-const chain = chains.find(({ chain_name }) => chain_name === "coreum");
-console.log(chain);
-
 export const chainName = "coreum";
 
 const devnet = false;

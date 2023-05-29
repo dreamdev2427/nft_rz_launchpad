@@ -4,10 +4,21 @@ import {
   SigningCosmWasmClient,
 } from "@cosmjs/cosmwasm-stargate";
 import { coin } from "@cosmjs/launchpad";
-import { convertDenomToMicroDenom } from "../utils/utils";
+import { convertDenomToMicroDenom } from "./utils";
 
-export const collectionConfig = async (client, address) => {
-  if (!client) return;
+const defaultFee = {
+  amount: [{ denom: "ucore", amount: "500" }],
+  gas: "500000",
+};
+
+export const collectionConfig = async (
+  client: CosmWasmClient,
+  address: string
+) => {
+  if (!client || !address) {
+    console.error("stargateClient undefined or address undefined.");
+    return;
+  }
   try {
     const result = await client.queryContractSmart(address, {
       get_config: {},
@@ -18,33 +29,23 @@ export const collectionConfig = async (client, address) => {
   }
 };
 
-export const checkNativeCurrencyAndTokenBalances = async (
-  balances,
-  tokenAmountShouldPay
-) => {
-  if (
-    balances[config.COIN_MINIMAL_DENOM] <= 0 ||
-    (tokenAmountShouldPay > 0 && balances.cw20 <= tokenAmountShouldPay)
-  ) {
-    return false;
-  }
-  return true;
-};
-
 export const batchMint = async (
-  signingClient,
-  sender,
-  collectionContract,
-  uris,
-  names,
-  price,
-  fmint
+  signingClient: SigningCosmWasmClient,
+  sender: string,
+  collectionContract: string,
+  uris: Array<string>,
+  names: Array<string>,
+  price: number,
+  fmint: boolean
 ) => {
-  if (!signingClient) return -1;
+  if (!signingClient || !sender) {
+    console.error("stargateClient undefined or address undefined.");
+    return -1;
+  }
   try {
     let owners = [];
     for (let idx = 0; idx < uris.length; idx++) owners.push(sender);
-    const extension = [];
+    const extension = [] as Array<any>;
     let result;
     names.map((name) => {
       extension.push({
