@@ -929,6 +929,10 @@ export default function Home() {
                 client as any,
                 (selectedColl as any)?.address
               );
+              console.log(
+                ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  colllectionInfo ===> ",
+                colllectionInfo
+              );
               let startId = (colllectionInfo as any).unused_token_id;
               console.log(
                 ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  params ===> ",
