@@ -86,8 +86,9 @@ export default function Home() {
   const [currentNetworkSymbol, setCurrentNetworkSymbol] = useState(
     PLATFORM_NETWORKS.COREUM
   );
-  const [currentConsideringCollId, setCurrentConsideringCollId] =
-    useState(null);
+  const [currentConsideringCollId, setCurrentConsideringCollId] = useState(
+    HOMMIS_COLLECTION._id
+  );
   const [currentUser, setCurrentUser] = useState(null);
   const [isCommunityMember, setIsCommunityMember] = useState(false);
   const [globalProvider, setGlobalProvider] = useState(null);
@@ -248,6 +249,12 @@ export default function Home() {
   }, [walletAddress]);
 
   useEffect(() => {
+    if (!isEmpty(address || "")) {
+      LoginWithCosmWallet();
+    }
+  }, [address]);
+
+  useEffect(() => {
     if (selectedColl._id.toString().length === 24) {
     } else {
       return;
@@ -331,7 +338,7 @@ export default function Home() {
   };
 
   const getSignclient = async () => {
-    if (address && address != "") {
+    if (address) {
       try {
         let sicl = await getSigningCosmWasmClient();
         if (!sicl || !address) {
@@ -349,6 +356,26 @@ export default function Home() {
       method: "post",
       url: `${config.baseUrl}users/login`,
       data: { address: walletAddress, password: md5(walletAddress) },
+    })
+      .then(function (response: any) {
+        if ((response as any).data.code === 0) {
+          //set the token to sessionStroage
+          const token = (response as any).data.token;
+          localStorage.setItem("jwtToken", (response as any).data.token);
+          const decoded = jwt_decode(token);
+          setCurrentUser((decoded as any)._doc);
+
+          router.push("/");
+        }
+      })
+      .catch(function (error: any) {});
+  };
+
+  const LoginWithCosmWallet = () => {
+    axios({
+      method: "post",
+      url: `${config.baseUrl}users/login`,
+      data: { address: address || "", password: md5(walletAddress) },
     })
       .then(function (response: any) {
         if ((response as any).data.code === 0) {
@@ -694,6 +721,12 @@ export default function Home() {
         });
     }
     if (freeUser && !fmint) return;
+    console.log(
+      ">>>>>>>>>>>>>>> 00000 ",
+      mintingCount,
+      currentUser,
+      selectedColl
+    );
     //read mintingcount
     if (
       mintingCount > 0 &&
@@ -706,21 +739,12 @@ export default function Home() {
       } else {
         return;
       }
+      console.log(">>>>>>>>>>>>>>> before setShowSplash");
       setShowSplash(true);
       setTimeout(async () => {
         setShowSplash(false);
         setWorking(true);
         if (currentNetworkSymbol === PLATFORM_NETWORKS.COREUM) {
-          // let payMintingPrice = await sendNativeCurrency(
-          //   currentUser.address,
-          //   MINTING_PRICE_LIST[currentNetworkSymbol].TREASURY_WALLET,
-          //   (detailedCollectionInfo?.mintingPrice || 0) * mintingCount
-          // );
-          // if (payMintingPrice == -1) {
-          //   NotificationManager.error("Network error.");
-          //   setWorking(false);
-          //   return;
-          // }
         } else if (currentNetworkSymbol === PLATFORM_NETWORKS.ETHEREUM) {
           let payPrice = await payBulkMintingPriceWithNativeCurrency(
             new Web3(globalProvider),
@@ -735,12 +759,17 @@ export default function Home() {
             return;
           }
         }
+        console.log(">>>>>>>>>>>>>>> before getRandomIdsForBulkMint");
         axios
           .post(`${config.API_URL}api/collection/getRandomIdsForBulkMint`, {
             collId: selectedColl._id,
             mintingCount: mintingCount,
           })
           .then((response) => {
+            console.log(
+              ">>>>>>>>>>>>>>> setMintingIdxs = ",
+              response.data.data
+            );
             setMintingIdxs(response.data.data);
             let mintingIndexArray = response.data.data;
             if (mintingIndexArray.length > 0) {
@@ -887,6 +916,11 @@ export default function Home() {
         if (response.status === 200) {
           const IdArray = [...response.data];
           if (currentNetworkSymbol === PLATFORM_NETWORKS.COREUM) {
+            let sicl = await getSigningCosmWasmClient();
+            if (!sicl || !address) {
+              console.error("stargateClient undefined or address undefined.");
+              return;
+            }
             var prices = [];
             for (let idx = 0; idx < IdArray.length; idx++) prices[idx] = 0;
             //do transaction
@@ -896,8 +930,18 @@ export default function Home() {
                 (selectedColl as any)?.address
               );
               let startId = (colllectionInfo as any).unused_token_id;
+              console.log(
+                ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  params ===> ",
+                sicl,
+                (currentUser as any).address,
+                selectedColl,
+                (params as any).metadataURIs,
+                names,
+                ((detailedCollection as any)?.mintingPrice || 0) * mintingCount,
+                fmint
+              );
               let txHash = await batchMint(
-                signingClient as any,
+                sicl as any,
                 (currentUser as any).address,
                 selectedColl.address,
                 (params as any).metadataURIs,
@@ -1026,6 +1070,7 @@ export default function Home() {
         }
       })
       .catch(function (error) {
+        console.log("multiple uploadin error : ", error);
         setWorking(false);
         toast.error("Failed in multiple items uploading");
       });
