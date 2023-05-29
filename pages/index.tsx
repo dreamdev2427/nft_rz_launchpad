@@ -519,7 +519,6 @@ export default function Home() {
                     }
                   })
                   .catch((err: any) => {});
-                setDetailedCollection(conId);
               }, 200);
             } else toast.error("Failed in applying new minting price.");
           })
@@ -879,6 +878,12 @@ export default function Home() {
     sel_JsonFiles: Array<any>,
     fmint = false
   ) => {
+    console.log(
+      "saveMultipleItem() params ======= ",
+      params,
+      sel_JsonFiles,
+      fmint
+    );
     setWorking(true);
     const metas = [];
     let names = [] as Array<any>;
@@ -917,6 +922,12 @@ export default function Home() {
           const IdArray = [...response.data];
           if (currentNetworkSymbol === PLATFORM_NETWORKS.COREUM) {
             let sicl = await getSigningCosmWasmClient();
+            console.log(
+              ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  sicl ===> ",
+              sicl,
+              "   address = ",
+              address
+            );
             if (!sicl || !address) {
               console.error("stargateClient undefined or address undefined.");
               return;
