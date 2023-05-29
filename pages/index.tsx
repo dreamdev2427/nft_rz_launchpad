@@ -155,6 +155,43 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsMobile(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    setTotalMintingPrice(
+      Number(
+        Number(
+          mintingCount * ((detailedCollection as any)?.mintingPrice || 0)
+        ).toFixed(2)
+      )
+    );
+    refreshMintedItems();
+  }, [detailedCollection]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (selectedColl._id.toString().length === 24) {
+      } else {
+        return;
+      }
+      axios
+        .post(`${config.API_URL}api/collection/detail`, {
+          id: selectedColl?._id || "",
+        })
+        .then(async (response) => {
+          if (response.data.code === 0) {
+            let updatedColl = response.data.data;
+            setDetailedCollection(updatedColl);
+          }
+        })
+        .catch((error) => {});
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
     try {
       if (typeof window !== "undefined" && web3Modal === null) {
         const web3modl = new Web3Modal({
@@ -185,6 +222,82 @@ export default function Home() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    axios
+      .post(`${config.API_URL}api/collection/getCollsOnANetwork`, {
+        networkSymbol: currentNetworkSymbol,
+      })
+      .then((response) => {
+        if (response.data.code === 0)
+          setCollsOfCurrentNetwork(response.data.data);
+      });
+  }, [currentNetworkSymbol]);
+
+  useEffect(() => {
+    getSignclient();
+  }, [address]);
+
+  useEffect(() => {
+    if (!isEmpty(walletAddress)) {
+      setWalletStatus(true);
+      Login();
+    } else {
+      setWalletStatus(false);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    if (selectedColl._id.toString().length === 24) {
+    } else {
+      return;
+    }
+    axios
+      .post(`${config.API_URL}api/collection/detail`, {
+        id: selectedColl?._id || "",
+      })
+      .then(async (response) => {
+        if (response.data.code === 0) {
+          let updatedColl = response.data.data;
+          setDetailedCollection(updatedColl);
+          setCurrentConsideringCollId(updatedColl?._id || null);
+          setAvailableItemsForMint([]);
+          setConsideringCollectionName(updatedColl?.name || "");
+          //total item count of coll,
+          let totalItemCount =
+            Number(updatedColl?.items?.length || 0) +
+            Number(updatedColl?.totalItemNumberInCID || 0) -
+            Number(updatedColl?.mintedCountOfCID || 0);
+          setTotalItems(totalItemCount);
+          //total item count minted
+          setTotalMinted(updatedColl?.items?.length || 0);
+          setMaxCount(
+            Number(updatedColl?.totalItemNumberInCID || 0) -
+              Number(updatedColl?.mintedCountOfCID || 0)
+          );
+          let notMintedItems = [];
+
+          let maxCount =
+            Number(updatedColl?.totalItemNumberInCID || 0) -
+            Number(updatedColl?.mintedCountOfCID || 0);
+          if (maxCount > 9) maxCount = 9;
+          for (let idx = 1; idx < maxCount + 1; idx++) {
+            try {
+              let url = `${PINATA_GATEWAY}${updatedColl.jsonFolderCID}/${
+                Number(updatedColl.mintedCountOfCID) + Number(idx)
+              }.json`;
+              let item = await axios.get(url);
+              notMintedItems.push(item.data);
+            } catch (err) {
+              continue;
+            }
+          }
+          setAvailableItemsForMint(notMintedItems);
+          refreshMintedItems();
+        }
+      })
+      .catch((err) => {});
+  }, [selectedColl]);
 
   const isSupportedNetwork = (currentNetwork: number) => {
     if (
@@ -230,19 +343,6 @@ export default function Home() {
       } catch (error) {}
     }
   };
-
-  useEffect(() => {
-    getSignclient();
-  }, [address]);
-
-  useEffect(() => {
-    if (!isEmpty(walletAddress)) {
-      setWalletStatus(true);
-      Login();
-    } else {
-      setWalletStatus(false);
-    }
-  }, [walletAddress]);
 
   const Login = () => {
     axios({
