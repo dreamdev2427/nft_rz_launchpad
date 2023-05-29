@@ -4,7 +4,7 @@ const assetList = assets.find(({ chain_name }) => chain_name === "coreum");
 const chain = chains.find(({ chain_name }) => chain_name === "coreum");
 console.log(chain);
 
-export const chainName = process.env.NEXT_PUBLIC_CHAIN ?? "coreum";
+export const chainName = "coreum";
 
 const devnet = false;
 export const config = {
