@@ -38,14 +38,6 @@ function CreateCosmosApp({ Component, pageProps }: AppProps) {
           },
         },
       }}
-      endpointOptions={{
-        endpoints: {
-          coreum: {
-            rpc: ["https://rize2day.com/cosmwasm"],
-            rest: ["https://rize2day.com/rest"],
-          },
-        },
-      }}
       wrappedWithChakra={true}
       // signerOptions={signerOptions}
       walletModal={TailwindModal}

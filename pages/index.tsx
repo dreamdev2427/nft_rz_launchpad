@@ -146,15 +146,6 @@ export default function Home() {
   const [client, setClient] = useState(null);
   const [signingClient, setSigningClient] = useState(null);
 
-  const loadClient = async (rpc = "") => {
-    try {
-      const temp = await CosmWasmClient.connect(config.RPC_URL);
-      setClient(temp as any);
-    } catch (error) {
-      throw error;
-    }
-  };
-
   useEffect(() => {
     if (window.innerWidth < 768) {
       setIsMobile(true);
@@ -203,7 +194,6 @@ export default function Home() {
         });
         setWeb3Modal(web3modl as any);
       }
-      loadClient();
     } catch (error: any) {}
   }, []);
 
