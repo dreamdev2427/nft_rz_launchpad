@@ -146,6 +146,15 @@ export default function Home() {
   const [client, setClient] = useState(null);
   const [signingClient, setSigningClient] = useState(null);
 
+  const loadClient = async (rpc = "") => {
+    try {
+      const temp = await CosmWasmClient.connect(config.RPC_URL);
+      setClient(temp as any);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   useEffect(() => {
     if (window.innerWidth < 768) {
       setIsMobile(true);
@@ -196,6 +205,18 @@ export default function Home() {
       }
     } catch (error: any) {}
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!client) {
+          await loadClient();
+        }
+      } catch (err) {
+        setTimeout(() => loadClient(), 1000);
+      }
+    })();
+  }, [client, loadClient]);
 
   useEffect(() => {
     let dateTimeStrInterval = setInterval(() => {
